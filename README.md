@@ -52,6 +52,12 @@
 
 ---
 
+## 🙏 致谢
+
+本项目基于原作者的开源项目 [chuyb-re/fakeScreen](https://github.com/chuyb-re/fakeScreen) 二次开发，保留了其 Xposed 架构与熄屏挂机的核心实现，并在其上扩展了电源键亮度、极暗强度等功能。感谢原作者的开源工作。
+
+---
+
 ## 🛠️ 项目构建 (Building)
 
 你可以使用 Android Studio 打开项目并直接构建，或者通过 Gradle 命令行构建 release APK：
