@@ -25,9 +25,8 @@
 
 | 设备            | 系统                  | Android 版本 |
 |:--------------|:--------------------|:-----------|
-| Pixel 6       | GrapheneOS          | Android 16 |
-| MiPad6 Pro    | HyperOS 2.0.213.0   | Android 15 |
-| Redmi K20 Pro | MIUI / HyperOS      | Android 13 |
+| Redmi K20 Pro | MIUI 14             | Android 13 |
+| Xiaomi 14     | HyperOS2            | Android 15 |
 
 ---
 
