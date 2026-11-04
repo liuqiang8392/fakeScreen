@@ -2,8 +2,8 @@
     <string name="app_name">fakeScreen</string>
     <string name="module_version">v2.2 (Build 20261104)</string>
     <string name="xposeddescription">允许将电源按钮单击行为设置为仅熄屏</string>
-    <string name="github_repo_url">https://github.com/chuyb-re/fakeScreen</string>
-    <string name="help">https://github.com/chuyb-re/fakeScreen</string>
+    <string name="github_repo_url">https://github.com/liuqiang8392/fakeScreen</string>
+    <string name="help">https://github.com/liuqiang8392/fakeScreen</string>
     <string name="tip">模块激活并开启功能开关后，按下电源键将仅熄灭屏幕。\n\n在“电源键亮度”中把滑块调到 0 以外时，按下电源键不再熄屏，而是把屏幕亮度降到该值；再按一次即恢复原来的亮度。\n\n“极暗强度”调用的是系统自身的极暗层（Reduce Bright Colors），它在背光已经最低之后再压暗画面，因此可以比 1 档亮度更暗；它同时也是系统设置里的极暗开关，改这里等于改系统设置。</string>
     <string name="dialog_tips_title">使用提示</string>
     <string name="dialog_positive_btn">确定</string>
