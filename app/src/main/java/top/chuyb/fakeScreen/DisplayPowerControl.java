@@ -39,6 +39,13 @@ final class DisplayPowerControl {
     }
 
     /**
+     * @return 屏幕当前是否已被本模块熄灭（即下一次切换会执行亮屏）。
+     */
+    static boolean isScreenOff() {
+        return sTargetPowerMode.get() == POWER_MODE_NORMAL;
+    }
+
+    /**
      * 通过硬件层 SurfaceControl 接口切换屏幕电源模式。
      *
      * @param module      用于框架日志的模块实例。

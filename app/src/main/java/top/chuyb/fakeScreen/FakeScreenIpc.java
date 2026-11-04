@@ -1,6 +1,7 @@
 package top.chuyb.fakeScreen;
 
 import android.content.BroadcastReceiver;
+import android.content.ContentResolver;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
@@ -24,6 +25,7 @@ final class FakeScreenIpc {
 
     private static Context sSystemContext = null;
     private static volatile boolean sIsFakeScreenEnabled = false;
+    private static volatile int sConfiguredBrightness = FakeScreenState.DEFAULT_BRIGHTNESS;
 
     private FakeScreenIpc() {
         // 工具类，禁止实例化。
@@ -36,6 +38,15 @@ final class FakeScreenIpc {
      */
     static boolean isEnabled() {
         return sIsFakeScreenEnabled;
+    }
+
+    /**
+     * 按下电源键时要降到的目标亮度，由亮度广播保持同步。
+     *
+     * @return 0 表示熄屏，1~255 表示目标亮度。
+     */
+    static int getConfiguredBrightness() {
+        return sConfiguredBrightness;
     }
 
     /**
@@ -61,38 +72,46 @@ final class FakeScreenIpc {
     }
 
     /**
-     * 把 Settings.Global 复位为关闭状态，并注册广播接收器，使运行时开关状态、Settings.Global
-     * 与界面三者保持同步。
+     * 读取上次保存的开关与亮度设定并注册广播接收器，使运行时状态、Settings.Global 与界面三者保持同步。
+     *
+     * <p>开关状态跨重启延续：开机时沿用上次的 {@link FakeScreenState#KEY_FAKE_SCREEN_ENABLED}，
+     * 不再强制复位为关闭；因此若开机后仍是开启状态，需要立即重新套用屏幕超时覆盖。</p>
      *
      * @param module 用于框架日志的模块实例。
      */
     private static void registerToggleReceiver(XposedModule module) {
         try {
             if (sSystemContext != null) {
-                // 开机时把 Settings.Global 复位为关闭状态
-                Settings.Global.putInt(sSystemContext.getContentResolver(), FakeScreenState.KEY_FAKE_SCREEN_ENABLED, 0);
+                ContentResolver cr = sSystemContext.getContentResolver();
+                // 开机时沿用上次的开关状态，使功能跨重启延续
+                sIsFakeScreenEnabled = Settings.Global.getInt(
+                        cr, FakeScreenState.KEY_FAKE_SCREEN_ENABLED, 0) == 1;
+                sConfiguredBrightness = FakeScreenState.clampBrightness(Settings.Global.getInt(
+                        cr, FakeScreenState.KEY_FAKE_SCREEN_BRIGHTNESS, FakeScreenState.DEFAULT_BRIGHTNESS));
 
-                // 开机后功能处于关闭状态，因此这里还原上一次会话遗留的超时覆盖，
-                // 避免屏幕一直保持不自动熄灭。
-                applyScreenTimeout(module, false);
+                // 开关沿用上次状态，这里按当前状态重新应用屏幕超时覆盖
+                applyScreenTimeout(module, sIsFakeScreenEnabled);
 
-                IntentFilter filter = new IntentFilter(FakeScreenState.ACTION_TOGGLE_FAKE_SCREEN);
+                // 降亮期间若重启过，屏幕上还留着降亮值，这里按上次保存的值还原
+                BrightnessController.restoreLeftover(module);
+
+                // 把系统真实的极暗状态同步到 Settings.Global 镜像，供界面进程展示
+                DimController.syncFromSystem(module);
+
+                IntentFilter filter = new IntentFilter();
+                filter.addAction(FakeScreenState.ACTION_TOGGLE_FAKE_SCREEN);
+                filter.addAction(FakeScreenState.ACTION_SET_BRIGHTNESS);
+                filter.addAction(FakeScreenState.ACTION_SET_DIM_LEVEL);
                 BroadcastReceiver receiver = new BroadcastReceiver() {
                     @Override
                     public void onReceive(Context context, Intent intent) {
-                        boolean enabled = intent.getBooleanExtra(FakeScreenState.EXTRA_ENABLED, false);
-                        sIsFakeScreenEnabled = enabled;
-
-                        try {
-                            Settings.Global.putInt(
-                                    context.getContentResolver(),
-                                    FakeScreenState.KEY_FAKE_SCREEN_ENABLED,
-                                    enabled ? 1 : 0
-                            );
-                        } catch (Exception e) {
-                            XLog.error("Failed to write Settings.Global in system_server", e);
+                        if (FakeScreenState.ACTION_SET_BRIGHTNESS.equals(intent.getAction())) {
+                            handleBrightnessChange(module, context, intent);
+                        } else if (FakeScreenState.ACTION_SET_DIM_LEVEL.equals(intent.getAction())) {
+                            handleDimLevelChange(module, context, intent);
+                        } else {
+                            handleToggle(module, context, intent);
                         }
-                        applyScreenTimeout(module, enabled);
                     }
                 };
 
@@ -102,13 +121,89 @@ final class FakeScreenIpc {
                         filter,
                         ContextCompat.RECEIVER_EXPORTED
                 );
-                XLog.log(Log.INFO,"Register BroadcastReceiver successful");
+                XLog.log(Log.INFO,"Register BroadcastReceiver successful, enabled="
+                        + sIsFakeScreenEnabled + ", brightness=" + sConfiguredBrightness);
             } else {
                 XLog.log(Log.ERROR,"Failed to extract Context from PhoneWindowManager");
             }
         } catch (Exception e) {
             XLog.error("Failed to register BroadcastReceiver", e);
         }
+    }
+
+    /**
+     * 处理界面开关广播：同步运行时开关状态、Settings.Global 与屏幕超时。
+     *
+     * @param module  用于框架日志的模块实例。
+     * @param context 广播携带的系统 Context。
+     * @param intent  开关广播。
+     */
+    private static void handleToggle(XposedModule module, Context context, Intent intent) {
+        boolean enabled = intent.getBooleanExtra(FakeScreenState.EXTRA_ENABLED, false);
+        sIsFakeScreenEnabled = enabled;
+
+        try {
+            Settings.Global.putInt(
+                    context.getContentResolver(),
+                    FakeScreenState.KEY_FAKE_SCREEN_ENABLED,
+                    enabled ? 1 : 0
+            );
+        } catch (Exception e) {
+            XLog.error("Failed to write Settings.Global in system_server", e);
+        }
+
+        if (!enabled) {
+            // 关闭功能时把可能残留的降亮状态还原，避免屏幕一直停留在低亮度。
+            BrightnessController.restoreIfDimmed(module);
+        }
+        applyScreenTimeout(module, enabled);
+    }
+
+    /**
+     * 处理界面亮度广播：保存目标亮度，并在已降亮时立即应用到当前屏幕。
+     *
+     * @param module  用于框架日志的模块实例。
+     * @param context 广播携带的系统 Context。
+     * @param intent  亮度广播。
+     */
+    private static void handleBrightnessChange(XposedModule module, Context context, Intent intent) {
+        int brightness = FakeScreenState.clampBrightness(intent.getIntExtra(
+                FakeScreenState.EXTRA_BRIGHTNESS, FakeScreenState.DEFAULT_BRIGHTNESS));
+        sConfiguredBrightness = brightness;
+
+        try {
+            Settings.Global.putInt(
+                    context.getContentResolver(),
+                    FakeScreenState.KEY_FAKE_SCREEN_BRIGHTNESS,
+                    brightness
+            );
+        } catch (Exception e) {
+            XLog.error("Failed to write Settings.Global brightness in system_server", e);
+        }
+        BrightnessController.updateIfDimmed(module, brightness);
+    }
+
+    /**
+     * 处理界面极暗广播：保存强度并立即写入系统设置，使屏幕当场变暗或恢复。
+     *
+     * @param module  用于框架日志的模块实例。
+     * @param context 广播携带的系统 Context。
+     * @param intent  极暗广播。
+     */
+    private static void handleDimLevelChange(XposedModule module, Context context, Intent intent) {
+        int level = FakeScreenState.clampDimLevel(intent.getIntExtra(
+                FakeScreenState.EXTRA_DIM_LEVEL, FakeScreenState.DEFAULT_DIM_LEVEL));
+
+        try {
+            Settings.Global.putInt(
+                    context.getContentResolver(),
+                    FakeScreenState.KEY_FAKE_SCREEN_DIM_LEVEL,
+                    level
+            );
+        } catch (Exception e) {
+            XLog.error("Failed to write Settings.Global dim level in system_server", e);
+        }
+        DimController.apply(module, level);
     }
 
     /**

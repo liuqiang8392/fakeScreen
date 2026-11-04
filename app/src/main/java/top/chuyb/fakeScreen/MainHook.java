@@ -106,6 +106,7 @@ public class MainHook extends XposedModule {
             if (count > 1) {
                 cancelPendingPowerTask();
                 DisplayPowerControl.resetTargetMode();
+                BrightnessController.restoreIfDimmed(this);
                 return chain.proceed();
             }
             // 拦截单击电源键
@@ -113,9 +114,9 @@ public class MainHook extends XposedModule {
                 cancelPendingPowerTask();
                 mPendingPowerTask = () -> {
                     try {
-                        DisplayPowerControl.toggle(this, classLoader);
+                        performPowerAction(classLoader);
                     } catch (Exception e){
-                        XLog.error("An exception occurred while switching the screen’s power mode.",e);
+                        XLog.error("An exception occurred while handling the power button click.",e);
                         return;
                     }
                     mPendingPowerTask = null;
@@ -130,10 +131,31 @@ public class MainHook extends XposedModule {
     }
 
     /**
+     * 按用户设定的目标亮度决定单击电源键后的行为：
+     * 已降亮时还原亮度；屏幕处于熄屏状态时先恢复亮屏；目标亮度为 0 时沿用旧的熄屏切换；
+     * 目标亮度大于 0 时把屏幕降到该亮度。
+     *
+     * @param classLoader system_server 的 ClassLoader。
+     * @throws Exception 切换显示电源模式失败时抛出。
+     */
+    private void performPowerAction(ClassLoader classLoader) throws Exception {
+        if (BrightnessController.isDimmed()) {
+            BrightnessController.restoreIfDimmed(this);
+            return;
+        }
+
+        int configuredBrightness = FakeScreenIpc.getConfiguredBrightness();
+        if (configuredBrightness <= 0 || DisplayPowerControl.isScreenOff()) {
+            DisplayPowerControl.toggle(this, classLoader);
+            return;
+        }
+        BrightnessController.dim(this, configuredBrightness);
+    }
+
+    /**
      * 取消 Handler 队列中待执行的电源键延时任务。
      */
-    private void cancelPendingPowerTask() {
-        if (mPendingPowerTask != null) {
+    private void cancelPendingPowerTask() {        if (mPendingPowerTask != null) {
             mHandler.removeCallbacks(mPendingPowerTask);
             mPendingPowerTask = null;
         }

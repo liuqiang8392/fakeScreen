@@ -24,3 +24,6 @@
 -keep,allowoptimization,allowobfuscation public class * extends io.github.libxposed.api.XposedModule {
     public <init>();
 }
+
+# 界面进程与 system_server 共用同一份代码，其中不能出现 libxposed api 的类型引用
+# （普通应用进程里没有该库）。XLog 已改为持有 Object 并用反射转发，这里只保留模块入口。

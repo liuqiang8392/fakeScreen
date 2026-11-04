@@ -1,16 +1,27 @@
 <resources>
     <string name="app_name">fakeScreen</string>
-    <string name="module_version">v2.0 (Build 20261005)</string>
+    <string name="module_version">v2.2 (Build 20261104)</string>
     <string name="xposeddescription">允许将电源按钮单击行为设置为仅熄屏</string>
     <string name="github_repo_url">https://github.com/chuyb-re/fakeScreen</string>
     <string name="help">https://github.com/chuyb-re/fakeScreen</string>
-    <string name="tip">模块激活并开启功能开关后，按下电源键将仅熄灭屏幕。</string>
+    <string name="tip">模块激活并开启功能开关后，按下电源键将仅熄灭屏幕。\n\n在“电源键亮度”中把滑块调到 0 以外时，按下电源键不再熄屏，而是把屏幕亮度降到该值；再按一次即恢复原来的亮度。\n\n“极暗强度”调用的是系统自身的极暗层（Reduce Bright Colors），它在背光已经最低之后再压暗画面，因此可以比 1 档亮度更暗；它同时也是系统设置里的极暗开关，改这里等于改系统设置。</string>
     <string name="dialog_tips_title">使用提示</string>
     <string name="dialog_positive_btn">确定</string>
 
     <!-- 主界面 -->
     <string name="home_title">fakeScreen</string>
     <string name="section_feature_toggle">功能开关</string>
+    <string name="section_brightness">电源键亮度</string>
+    <string name="brightness_value_off">0（熄屏）</string>
+    <string name="brightness_value">%1$d / 255</string>
+    <string name="brightness_hint">0 = 按下电源键熄灭屏幕；1–255 = 按下电源键把亮度降到该值，再按一次恢复原亮度</string>
+    <string name="brightness_decrease">−</string>
+    <string name="brightness_increase">＋</string>
+    <string name="brightness_input_desc">目标亮度，输入 0–255</string>
+    <string name="section_dim">极暗强度</string>
+    <string name="dim_value_off">关闭</string>
+    <string name="dim_value">%1$d%%</string>
+    <string name="dim_hint">系统级极暗（Reduce Bright Colors），在背光最低之后继续压暗画面；0 = 关闭，越大越暗</string>
     <string name="section_hide_icon">隐藏桌面图标</string>
     <string name="section_version_info">版本信息</string>
     <string name="action_github_repo">GitHub仓库</string>

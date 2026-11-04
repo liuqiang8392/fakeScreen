@@ -11,8 +11,8 @@ android {
         //noinspection ExpiredTargetSdkVersion
         targetSdk = 31
         minSdk = 26
-        versionCode = 20
-        versionName = "2.0"
+        versionCode = 22
+        versionName = "2.2"
     }
 
     buildTypes {
